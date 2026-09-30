@@ -5,17 +5,19 @@
  * U-Boot device tree for bl-mt798x-dhcpd.
  *
  * 多分区启动 (/mtd-layout)：
- *   default      - ImmortalWrt/OpenWrt 114M ubi（KJ30-N 现行布局）
- *   ikuai        - iKuai Q3000 原厂布局（ubi 64M + panic_oops + ikuai_cfg 16M）
- *   ikuai-dual   - 上面这套 + 尾部剩余空间再划一个 ubi2，用于 OpenWrt 双系统
+ *   default     - ImmortalWrt/OpenWrt 114M ubi（KJ30-N 现行布局，保持为默认，刷完不动就能起）
+ *   stock-64m   - 原厂 64M 布局：与 KJ30-N 自带 U-Boot DTB、以及 iKuai AX320C-NA/AX323W-NA
+ *                 固件 DTB 完全一致（ubi 都落在 0x580000、都是 64M）
  *
  * 切换方法（U-Boot 命令行）：
- *   setenv mtd_layout_label ikuai ; saveenv ; reset
- * 或开机在 bootmenu 里选 / 用 failsafe 网页查看当前布局。
+ *   setenv mtd_layout_label stock-64m ; saveenv ; mtd erase ubi ; reset
+ * 注意：改布局不会重建 UBI，切完必须 mtd erase ubi 再刷固件。
+ * 可用 `showlayout` 命令查看全部布局，或进 failsafe 网页看当前布局。
  *
- * 前四个分区（bl2 / u-boot-env / factory / fip）的偏移与 IK-Q3000 固件 DTB
- * 中声明的 Bootloader/Config/Factory/FIP 完全一致，因此 iKuai 的 kernel DTB
- * 无需修改即可匹配。
+ * 命名遵循上游 bl-mt798x-dhcpd 的惯例：layout@0 必须叫 "default"，
+ * 其余用 "<固件>-<容量>"（如 immortalwrt-112m / stock-64m）。
+ * 选择逻辑见 board/mediatek/common/mtd_layout.c：
+ *   读环境变量 mtd_layout（新）→ 回退 mtd_layout_label（旧）→ 都没有则 "default"
  */
 
 /dts-v1/;
@@ -52,25 +54,16 @@
 		};
 
 		layout@1 {
-			label = "ikuai";
-			// iKuai Q3000 原厂布局：ubi 64M + panic_oops 256k + ikuai_cfg 16M
-			// 与 IK-Q3000_3.7.5 固件自带 DTB 的分区表一一对应
-			// （原厂 DTB 里 ikuai_log 长度为 0，这里同样不映射，尾部空间留空）
+			label = "stock-64m";
+			// 原厂 64M 布局 —— 与 KJ30-N 自带 U-Boot DTB 的分区表逐字节一致：
+			//   BL2 0x0 1M / u-boot-env 0x100000 512K / Factory 0x180000 2M /
+			//   FIP 0x380000 2M / ubi 0x580000 64M
+			// iKuai 8.1（AX320C-NA / AX323W-NA）固件 DTB 也是 ubi 0x580000 64M，
+			// 只是把 FIP 缩成 1.75M 并多切了一个 256K 的 opt —— ubi 的起点和长度相同，
+			// 所以跑 iKuai 系固件就选这套。
 			cmdline = "console=ttyS0,115200n1 loglevel=8 earlycon=uart8250,mmio32,0x11002000 clk_ignore_unused";
 			mtdids = "nmbm0=nmbm0";
-			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),64M(ubi),256k(panic_oops),16M(ikuai_cfg)";
-			boot_part = "ubi";
-			factory_part = "ubi";
-			sysupgrade_kernel_ubipart = "ubi";
-			sysupgrade_rootfs_ubipart = "ubi";
-		};
-
-		layout@2 {
-			label = "ikuai-dual";
-			// iKuai 64M 在前，尾部剩余空间作为第二套 ubi2 给 OpenWrt 双系统
-			// 切到 ubi2 启动：setenv ubi_boot_part ubi2
-			mtdids = "nmbm0=nmbm0";
-			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),64M(ubi),256k(panic_oops),16M(ikuai_cfg),-(ubi2)";
+			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(Factory),2048k(fip),64M(ubi)";
 			boot_part = "ubi";
 			factory_part = "ubi";
 			sysupgrade_kernel_ubipart = "ubi";
