@@ -40,21 +40,11 @@
 	};
 
 	mtd-layout {
-		/*
-		 * 注意：layout@0 的 label 必须是 "default"。
-		 * iKuai 会把 0x100000 那 512K 的 Config 分区当自己的配置区写，
-		 * 而那正是 U-Boot 存 env 的 u-boot-env 分区 —— env 被写坏后
-		 * U-Boot 退回默认环境、mtd_layout 丢失，就会用 label="default" 这套。
-		 * 所以把 iKuai 布局放在 default，env 被毁也不影响正常启动。
-		 */
 		layout@0 {
 			label = "default";
-			// iKuai Q3000 原厂布局：ubi 64M + panic_oops 256k + ikuai_cfg 16M
-			// 与 IK-Q3000_3.7.5 固件自带 DTB 的分区表一一对应
-			// （原厂 DTB 里 ikuai_log 长度为 0，这里同样不映射，尾部空间留空）
-			cmdline = "console=ttyS0,115200n1 loglevel=8 earlycon=uart8250,mmio32,0x11002000 clk_ignore_unused";
+			// ImmortalWrt / OpenWrt 114M ubi —— KJ30-N 现行布局，刷完不用动就能跑 OpenWrt
 			mtdids = "nmbm0=nmbm0";
-			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),64M(ubi),256k(panic_oops),16M(ikuai_cfg)";
+			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),116736k(ubi)";
 			boot_part = "ubi";
 			factory_part = "ubi";
 			sysupgrade_kernel_ubipart = "ubi";
@@ -62,10 +52,13 @@
 		};
 
 		layout@1 {
-			label = "openwrt-114m";
-			// ImmortalWrt / OpenWrt 114M ubi（KJ30-N 原先的 OpenWrt 布局）
+			label = "ikuai";
+			// iKuai Q3000 原厂布局：ubi 64M + panic_oops 256k + ikuai_cfg 16M
+			// 与 IK-Q3000_3.7.5 固件自带 DTB 的分区表一一对应
+			// （原厂 DTB 里 ikuai_log 长度为 0，这里同样不映射，尾部空间留空）
+			cmdline = "console=ttyS0,115200n1 loglevel=8 earlycon=uart8250,mmio32,0x11002000 clk_ignore_unused";
 			mtdids = "nmbm0=nmbm0";
-			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),116736k(ubi)";
+			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),64M(ubi),256k(panic_oops),16M(ikuai_cfg)";
 			boot_part = "ubi";
 			factory_part = "ubi";
 			sysupgrade_kernel_ubipart = "ubi";
@@ -88,6 +81,14 @@
 	gpio-keys {
 		compatible = "gpio-keys";
 
+		/*
+		 * 必须与 KJ30-N 设备自带 DTB 一致（反编译来源：kj30-n.dts）：
+		 *   wps     -> pio 0, flags 0x00 = 高有效（按下为高，常态低）
+		 *   factory -> pio 1, flags 0x01 = 低有效（按下为低，常态高）
+		 * 注意：这里的极性写反会直接导致 U-Boot 把"常态"当成"按住"，
+		 * 每次冷启动都进 failsafe WEBUI（log 表现：wps is pressed for: N second(s)）。
+		 * 子节点 name 用 reset/wps，因为 U-Boot 的 glbtn 按这两个 label 找按键。
+		 */
 		button-reset {
 			label = "reset";
 			linux,code = <KEY_RESTART>;
@@ -97,7 +98,7 @@
 		button-wps {
 			label = "wps";
 			linux,code = <KEY_WPS_BUTTON>;
-			gpios = <&pio 0 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 0 GPIO_ACTIVE_HIGH>;
 		};
 	};
 
