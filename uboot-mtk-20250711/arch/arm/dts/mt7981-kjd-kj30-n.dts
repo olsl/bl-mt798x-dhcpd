@@ -55,9 +55,10 @@
 			label = "ikuai";
 			// iKuai Q3000 原厂布局：ubi 64M + panic_oops 256k + ikuai_cfg 16M
 			// 与 IK-Q3000_3.7.5 固件自带 DTB 的分区表一一对应
+			// （原厂 DTB 里 ikuai_log 长度为 0，这里同样不映射，尾部空间留空）
 			cmdline = "console=ttyS0,115200n1 loglevel=8 earlycon=uart8250,mmio32,0x11002000 clk_ignore_unused";
 			mtdids = "nmbm0=nmbm0";
-			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),64M(ubi),256k(panic_oops),16M(ikuai_cfg),-(ikuai_log)";
+			mtdparts = "nmbm0:1024k(bl2),512k(u-boot-env),2048k(factory),2048k(fip),64M(ubi),256k(panic_oops),16M(ikuai_cfg)";
 			boot_part = "ubi";
 			factory_part = "ubi";
 			sysupgrade_kernel_ubipart = "ubi";
